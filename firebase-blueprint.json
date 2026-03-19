@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a staff member or supervisor in the Loco Shed.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["supervisor", "store", "staff"] },
+        "tokenNumber": { "type": "string", "description": "3 or 4 digit unique token number for staff." },
+        "status": { "type": "string", "enum": ["duty", "leave", "sick", "absent", "pending_approval"] },
+        "lastStatusUpdate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Locomotive": {
+      "title": "Locomotive",
+      "description": "Represents a locomotive maintained in the shed.",
+      "type": "object",
+      "properties": {
+        "locoNumber": { "type": "string", "description": "Unique 5 digit number." },
+        "type": { "type": "string", "enum": ["WAP-5", "WAP-7", "WAG-9"] },
+        "commissionDate": { "type": "string", "format": "date" },
+        "lastMaintenanceDate": { "type": "string", "format": "date-time" },
+        "currentStatus": { "type": "string" }
+      },
+      "required": ["locoNumber", "type"]
+    },
+    "TractionMotor": {
+      "title": "TractionMotor",
+      "description": "Represents a Traction Motor (TM) unit.",
+      "type": "object",
+      "properties": {
+        "tmId": { "type": "string", "description": "Unique ID for the motor." },
+        "type": { "type": "string", "enum": ["WAP-5", "WAP-7", "WAG-9"] },
+        "status": { "type": "string", "enum": ["healthy", "overhauled", "failed", "condemned", "external_repair", "in_loco"] },
+        "currentLocoId": { "type": "string", "description": "Loco number if currently installed." },
+        "lastOverhaulDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tmId", "type", "status"]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "A maintenance task assigned to staff.",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string" },
+        "locoId": { "type": "string" },
+        "taskType": { "type": "string" },
+        "staffIds": { "type": "array", "items": { "type": "string" } },
+        "place": { "type": "string" },
+        "status": { "type": "string", "enum": ["booked", "done", "approved"] },
+        "bookedBy": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["locoId", "taskType", "staffIds", "status"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Parts and stock items in the store.",
+      "type": "object",
+      "properties": {
+        "partId": { "type": "string" },
+        "name": { "type": "string" },
+        "quantityNew": { "type": "number" },
+        "quantityHealthy": { "type": "number" },
+        "quantityScrap": { "type": "number" },
+        "minStockLevel": { "type": "number" }
+      },
+      "required": ["partId", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles and status."
+    },
+    "/locomotives/{locoNumber}": {
+      "schema": "Locomotive",
+      "description": "Locomotive records."
+    },
+    "/traction_motors/{tmId}": {
+      "schema": "TractionMotor",
+      "description": "TM records and history."
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Daily work bookings."
+    },
+    "/inventory/{partId}": {
+      "schema": "InventoryItem",
+      "description": "Store stock levels."
+    }
+  }
+}

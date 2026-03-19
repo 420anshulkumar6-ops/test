@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, name, email, role, tokenNumber, status, lastStatusUpdate
+    //
+    // Collection: locomotives
+    // Fields: locoNumber, type, commissionDate, lastMaintenanceDate, currentStatus
+    //
+    // Collection: traction_motors
+    // Fields: tmId, type, status, currentLocoId, lastOverhaulDate
+    //
+    // Collection: jobs
+    // Fields: jobId, locoId, taskType, staffIds, place, status, bookedBy, approvedBy, timestamp
+    //
+    // Collection: inventory
+    // Fields: partId, name, quantityNew, quantityHealthy, quantityScrap, minStockLevel
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSupervisor() {
+      return isAuthenticated() && (
+        getUserData().role == 'supervisor' || 
+        (request.auth.token.email == "420anshulkumar6@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isStoreKeeper() {
+      return isAuthenticated() && getUserData().role == 'store';
+    }
+
+    function isStaff() {
+      return isAuthenticated() && getUserData().role == 'staff';
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && 
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['supervisor', 'store', 'staff'];
+    }
+
+    function isValidJob(data) {
+      return data.locoId is string &&
+             data.taskType is string &&
+             data.staffIds is list &&
+             data.status in ['booked', 'done', 'approved'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == 'staff';
+      allow update: if isAuthenticated() && (
+        (isOwner(uid) && request.resource.data.role == resource.data.role) || 
+        isSupervisor()
+      );
+    }
+
+    match /locomotives/{locoNumber} {
+      allow read: if isAuthenticated();
+      allow write: if isSupervisor();
+    }
+
+    match /traction_motors/{tmId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupervisor() || isStoreKeeper();
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isSupervisor();
+      allow update: if isSupervisor() || (isStaff() && request.resource.data.status == 'done' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+    }
+
+    match /inventory/{partId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupervisor() || isStoreKeeper();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
